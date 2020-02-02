@@ -7,6 +7,11 @@
  * ( https://github.com/fal-works/make-games-with-p5js/blob/master/LICENSE )
  */
 
+ /*
+  効果音：ぐぁどさんがピストンコラージュで作った音源を使用させていただいてます。
+	(http://pxtone.haru.gs/instruments/GaDtone.zip)
+*/
+
 const FINAL_VELOCITY = 8;
 const PLAYER_COLOR = "#4169e1";
 const BLOCK_COLOR = "#a0522d";

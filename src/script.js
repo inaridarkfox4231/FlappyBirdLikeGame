@@ -43,11 +43,16 @@ function updatePosition(entity){
 function updateBlockPairPosition(blockPair){
 	updatePosition(blockPair.u);
 	updatePosition(blockPair.l);
-	if(blockPair.type !== 0){
+	if(blockPair.type === 1 || blockPair.type === 2){
 		if(blockPair.u.y > 100 || blockPair.u.y < -100){
 			blockPair.u.vy *= -1;
 			blockPair.l.vy *= -1;
 		}
+	}else if(blockPair.type === 3){
+		if(blockPair.u.y > 50 || blockPair.u.y < -100){
+			blockPair.u.vy *= -1;
+		}
+		blockPair.l.y = 600 - blockPair.u.y; // 強制的に600 - u.yにする
 	}
 }
 
@@ -68,21 +73,51 @@ function createBlock(y, type){
 			return {x:900, y, vx:-2, vy:1};
 		case 2:
 			return {x:900, y, vx:-2, vy:2};
+		case 3:
+			return {x:900, y, vx:-2, vy:2}; // 上側だけ意味がある。下側は強制的にy座標を決める。
 	}
 }
 
 function createBlockPair(y, type){
+	if(type < 3){
+    return {
+      u:createBlock(y, type),
+      l:createBlock(y + 600, type),
+		  type,
+		  passed:false // 通過したかどうか（スコア計算の際のフラグに使う）
+    }
+	}else if(type === 3){
+		return {
+			u:createBlock(y, type),
+			l:createBlock(600 - y, type),
+			type,
+			passed:false // 伸び縮みするやつ。上のやつが-100～0まで動く、下は足して600を満たすように変化する。
+		}
+	}
+}
+
+function createCloud(){
+  let w = 80 + random(200);
   return {
-    u:createBlock(y, type),
-    l:createBlock(y + 600, type),
-		type,
-		passed:false // 通過したかどうか（スコア計算の際のフラグに使う）
+    x: 1000,
+    y: 100 + random(400),
+    vx: -2-random(2),
+    vy:0,
+    w: w,
+    h: w * (0.4 + random(0.4)),
+	  type: (random() < 0.5 ? "front" : "back")
   }
 }
 
+
 function addBlockPair(type = 0){
-  let y = random(-100, 100);
-  blockPairs.push(createBlockPair(y, type));
+	if(type < 3){
+    let y = random(-100, 100);
+    blockPairs.push(createBlockPair(y, type));
+	}else if(type === 3){
+		let y = random(-100, 50);
+		blockPairs.push(createBlockPair(y, type));
+	}
   //blocks.push(createBlock(y));
   //blocks.push(createBlock(y + 600));
 }
@@ -112,6 +147,8 @@ function updateScore(type){
 			score += 5000; break;
 		case 2:
 			score += 10000; break;
+		case 3:
+			score += 7000; break; // 難しくなってしまった（（
 	}
 }
 
@@ -134,14 +171,15 @@ function resetGame(){
 
 function updateGame(){
   if(gameState === "gameover"){ return; }
-	// ブロックの追加
-  if(frameCount % 120 === 1){
-		const r = random();
-		let pairType = (r < 0.7 ? 0 : (r < 0.9 ? 1 : 2));
-		addBlockPair(pairType);
-	}
   // パーティクルの追加
   particles.push(createParticle(player.x, player.y)); // プレイヤーの位置で
+	// ブロックの追加
+  if(frameCount % 120 === 1){
+		let pairType = getType(); // 0～1.
+		addBlockPair(pairType);
+	}
+  // 雲の追加
+	if(frameCount % 200 == 0){ clouds.push(createCloud()); }
 
 	// 死んだエンティティの排除
   blockPairs = blockPairs.filter(blockPairIsAlive);
@@ -177,18 +215,28 @@ function updateGame(){
   }
 }
 
+function getType(){
+	// 0:60% 1:25% 2:5% 3:10% にする。
+	let r = random();
+	if(r < 0.6){ return 0; }
+	if(r < 0.85){ return 1; }
+	if(r < 0.9){ return 2; }
+	return 3;
+}
+
 function drawGame(){
   background(BACKGROUND_COLOR);
+	// パーティクル→プレイヤー→ブロック→最後に雲
+	for(let cloud of clouds){ if(cloud.type === "back"){ drawCloud(cloud); } }
 	for(let particle of particles) drawParticle(particle);
   drawPlayer(player);
-  for(let cloud of clouds) drawCloud(cloud);
-  if(frameCount % 200 == 0){ clouds.push(createCloud()); }
   for(let blockPair of blockPairs){
     drawBlock(blockPair.u, "upper", blockPair.type);
 		drawBlock(blockPair.l, "lower", blockPair.type);
   }
-	drawScore();
+  for(let cloud of clouds){ if(cloud.type === "front"){ drawCloud(cloud); } }
   if(gameState === "gameover") drawGameoverScreen();
+	drawScore(); // スコアが見えづらいので最後に描画する。
 }
 
 function onMousePress(){
@@ -199,18 +247,6 @@ function onMousePress(){
     case "gameover":
       resetGame();
       break;
-  }
-}
-
-function createCloud(){
-  let w = 80 + random(200);
-  return {
-    x: 1000,
-    y: 100 + random(400),
-    vx: -2-random(2),
-    vy:0,
-    w: w,
-    h: w * (0.4 + random(0.4))
   }
 }
 
@@ -291,12 +327,13 @@ function drawParticle(particle) {
 let playerImg;
 let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
+//let headAddress = "";
 
 function preload(){
 	playerImg = loadImage(headAddress + "player.png");
 	let blockUpperImgSet = [];
 	let blockLowerImgSet = [];
-	for(let i = 0; i < 3; i++){
+	for(let i = 0; i < 4; i++){
 		blockUpperImgSet.push(loadImage(headAddress + "block_upper_" + i + ".png"));
 		blockLowerImgSet.push(loadImage(headAddress + "block_lower_" + i + ".png"));
 	}

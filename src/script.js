@@ -212,18 +212,25 @@ function updateGame(){
 	// パーティクルのライフ減少
   for (let particle of particles) decreaseLife(particle);
 
-  if(!playerIsAlive(player)) gameState = "gameover";
+  if(!playerIsAlive(player)) miss();
   // 衝突判定
   for(let blockPair of blockPairs) {
     if(entitiesAreColliding(player, blockPair.u, 20 + 40, 20 + 200) || entitiesAreColliding(player, blockPair.l, 20 + 40, 20 + 200)) {
-      gameState = "gameover";
+      miss();
       break;
     }else if(!blockPair.passed && blockPair.u.x + 40 < player.x - 20){
 			// ブロックを通過したらスコアを上げる
+			soundSet.passed.play();
 			updateScore(blockPair.type);
 			blockPair.passed = true;
 		}
   }
+}
+
+// ミスした時の処理（gameoverにする、音出す）
+function miss(){
+	gameState = "gameover";
+	soundSet.miss.play();
 }
 
 function updateDemo(){
@@ -309,6 +316,7 @@ function applyGravity(entity){
 
 function applyJump(entity){
   entity.vy = -jump_speed;
+	soundSet.jump.play();
 }
 
 function drawPlayer(entity){
@@ -362,7 +370,8 @@ function drawParticle(particle) {
 let playerImg;
 let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
-//let headAddress = "";
+// let headAddress = "";
+let soundSet = {};
 
 function preload(){
 	playerImg = loadImage(headAddress + "player.png");
@@ -373,6 +382,9 @@ function preload(){
 		blockLowerImgSet.push(loadImage(headAddress + "block_lower_" + i + ".png"));
 	}
 	blockImgSet = {upper:blockUpperImgSet, lower:blockLowerImgSet};
+	soundSet.jump = loadSound(headAddress + "jump.wav");
+	soundSet.miss = loadSound(headAddress + "miss.wav");
+	soundSet.passed = loadSound(headAddress + "passed.wav");
 }
 
 // setup/draw

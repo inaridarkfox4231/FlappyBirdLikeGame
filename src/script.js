@@ -7,7 +7,7 @@
  * ( https://github.com/fal-works/make-games-with-p5js/blob/master/LICENSE )
  */
 
- /*
+/*
   効果音：ぐぁどさんがピストンコラージュで作った音源を使用させていただいてます。
 	(http://pxtone.haru.gs/instruments/GaDtone.zip)
 */
@@ -22,6 +22,7 @@ let pc;
 
 let gravity = 0.15;
 let jump_speed = 5;
+let actionFlag = false; // 毎フレーム、最初にtrueにして、イベント時にfalseにし、trueの時のみイベントが発生するようにする。
 
 // エンティティ関連の関数
 
@@ -282,6 +283,7 @@ function drawTitle(){
 }
 
 function onMousePress(){
+	if(!actionFlag){ return; }
   switch(gameState){
 		case "title":
 			gameState = "play";
@@ -295,6 +297,7 @@ function onMousePress(){
       resetGame();
       break;
   }
+	actionFlag = false;
 }
 
 function drawBlock(entity, posType, type){
@@ -375,7 +378,7 @@ function drawParticle(particle) {
 let playerImg;
 let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
-// let headAddress = "";
+//let headAddress = "";
 let soundSet = {};
 
 function preload(){
@@ -405,6 +408,7 @@ function setup() {
 }
 
 function draw() {
+	actionFlag = true;
   updateGame();
   drawGame();
 	//image(playerImg, 20, 20);
@@ -418,5 +422,5 @@ function mousePressed(){
 
 function touchStarted(){
 	// タッチ操作用
-	onMousePress();
+  onMousePress();
 }

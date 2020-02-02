@@ -15,11 +15,15 @@ const CLOUD_COLOR = "#e6e6fa";
 const PARTICLE_COLOR = "#00bfff";
 let pc;
 
+let gravity = 0.15;
+let jump_speed = 5;
+
 // エンティティ関連の関数
 
 // ゲーム全体に関わる部分
 
-let score = 0;
+let score;
+let hi_score;
 
 /** プレイヤーエンティティ */
 let player = {
@@ -98,6 +102,7 @@ function createBlockPair(y, type){
 
 function createCloud(){
   let w = 80 + random(200);
+	let type = (random() < 0.5 ? "front" : "back");
   return {
     x: 1000,
     y: 100 + random(400),
@@ -105,7 +110,7 @@ function createCloud(){
     vy:0,
     w: w,
     h: w * (0.4 + random(0.4)),
-	  type: (random() < 0.5 ? "front" : "back")
+	  type
   }
 }
 
@@ -137,6 +142,7 @@ function drawScore(){
 	textSize(32);
 	textAlign(LEFT, TOP);
 	text("SCORE:" + score, 5, 5);
+	text("Hi-SCORE:" + hi_score, 5, 45);
 }
 
 function updateScore(type){
@@ -157,20 +163,25 @@ function drawGameoverScreen(){
   fill(0);
   textSize(64);
   textAlign(CENTER, CENTER);
-  text("GAME OVER", width / 2, height / 2);
+  text("GAME OVER", width / 2, height / 2 - 35);
+	if(score > hi_score){
+		text("Hi-SCORE UPDATED!!", width / 2, height / 2 + 35);
+	}
 }
 
 function resetGame(){
-  gameState = "play";
+  //gameState = "play";
   player = createPlayer();
   blockPairs = [];
 	particles = [];
   clouds = [];
+	if(score > hi_score){ hi_score = score; } // ハイスコア更新
 	score = 0;
 }
 
 function updateGame(){
   if(gameState === "gameover"){ return; }
+	if(gameState === "title"){ updateDemo(); return; }
   // パーティクルの追加
   particles.push(createParticle(player.x, player.y)); // プレイヤーの位置で
 	// ブロックの追加
@@ -179,7 +190,7 @@ function updateGame(){
 		addBlockPair(pairType);
 	}
   // 雲の追加
-	if(frameCount % 200 == 0){ clouds.push(createCloud()); }
+	if(frameCount % 200 == 0) clouds.push(createCloud());
 
 	// 死んだエンティティの排除
   blockPairs = blockPairs.filter(blockPairIsAlive);
@@ -215,6 +226,13 @@ function updateGame(){
   }
 }
 
+function updateDemo(){
+  // 雲の追加
+	if(frameCount % 200 == 0){ clouds.push(createCloud()); }
+  clouds = clouds.filter(cloudIsAlive);
+  for(let cloud of clouds) updatePosition(cloud);
+}
+
 function getType(){
 	// 0:60% 1:25% 2:5% 3:10% にする。
 	let r = random();
@@ -225,6 +243,7 @@ function getType(){
 }
 
 function drawGame(){
+	if(gameState === "title"){ drawTitle(); return; }
   background(BACKGROUND_COLOR);
 	// パーティクル→プレイヤー→ブロック→最後に雲
 	for(let cloud of clouds){ if(cloud.type === "back"){ drawCloud(cloud); } }
@@ -239,12 +258,28 @@ function drawGame(){
 	drawScore(); // スコアが見えづらいので最後に描画する。
 }
 
+function drawTitle(){
+	background(200, 200, 255);
+	for(let cloud of clouds) drawCloud(cloud);
+	fill(0);
+	textAlign(CENTER, CENTER);
+	textSize(80);
+	text("--FLAPPY BIRD--", width / 2, height / 5);
+	fill(0, 120 * sin(frameCount * 0.08) + 135)
+	text("CLICK HERE!", width / 2, height * 3 / 5);
+}
+
 function onMousePress(){
   switch(gameState){
+		case "title":
+			gameState = "play";
+			clouds = [];
+			break;
     case "play":
       applyJump(player);
       break;
     case "gameover":
+			gameState = "play";
       resetGame();
       break;
   }
@@ -269,11 +304,11 @@ function cloudIsAlive(entity){
 }
 
 function applyGravity(entity){
-  if(entity.vy < FINAL_VELOCITY){ entity.vy += 0.15; } // 終端速度を設定
+  if(entity.vy < FINAL_VELOCITY){ entity.vy += gravity; } // 終端速度を設定
 }
 
 function applyJump(entity){
-  entity.vy = -5;
+  entity.vy = -jump_speed;
 }
 
 function drawPlayer(entity){
@@ -283,7 +318,7 @@ function drawPlayer(entity){
 }
 
 function playerIsAlive(entity){
-  return entity.y < 600;
+  return entity.y < 700 && entity.y > -100; // 画面上部に逃げれば当たらずに済んでしまうのでその裏技を禁止にする
 }
 
 function drawCloud(entity){
@@ -346,6 +381,8 @@ function setup() {
   createCanvas(800, 600);
   rectMode(CENTER); // 四角形の基準点を中心に変える
   noStroke();
+	hi_score = 0;
+	gameState = "title";
   resetGame();
 	pc = {r:red(color(PARTICLE_COLOR)), g:green(color(PARTICLE_COLOR)), b:blue(color(PARTICLE_COLOR))};
 }

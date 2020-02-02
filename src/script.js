@@ -398,3 +398,8 @@ function mousePressed(){
   // マウスが押された場合の処理
   onMousePress();
 }
+
+function touchStarted(){
+	// タッチ操作用
+	onMousePress();
+}

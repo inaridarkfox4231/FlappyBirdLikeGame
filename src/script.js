@@ -12,17 +12,34 @@
 	(http://pxtone.haru.gs/instruments/GaDtone.zip)
 */
 
+// レベルに応じて背景色を変える。
+// レベルが高いと難しいブロックが増える。
+// 最後にセレクト画面に戻れるようにしたい。
+// ハイスコアをレベルごとにしてセレクト画面で表示されるようにするとか？まあとりあえずリセットでいいよ。
+// decisionの効果音付けた。
+
 const FINAL_VELOCITY = 8;
 const PLAYER_COLOR = "#4169e1";
 const BLOCK_COLOR = "#a0522d";
-const BACKGROUND_COLOR = "#deb887";
+//const BACKGROUND_COLOR = "#deb887";
 const CLOUD_COLOR = "#e6e6fa";
 const PARTICLE_COLOR = "#00bfff";
 let pc;
 
 let gravity = 0.15;
 let jump_speed = 5;
-let actionFlag = false; // 毎フレーム、最初にtrueにして、イベント時にfalseにし、trueの時のみイベントが発生するようにする。
+// 冷静に考えたらスマホ前提ならtouch系だけでいいんだっけ。とりあえず無しにしよ。
+
+// レベリング関連
+let level; // "easy", "normal", "hard", "crazy".
+let cloudGenerateInterval = {easy:250, normal:200, hard:150, crazy:100};
+let backCloudProbability = {easy:0.75, normal:0.5, hard:0.25, crazy:0.05};
+let validation1 = {easy:0.9, normal:0.6, hard:0.3, crazy:0};
+let validation2 = {easy:0.95, normal:0.85, hard:0.65, crazy:0.4};
+let validation3 = {easy:1, normal:0.95, hard:0.85, crazy:0.7};
+
+// 背景
+let bgSet;
 
 // エンティティ関連の関数
 
@@ -106,13 +123,15 @@ function createBlockPair(y, type){
 	}
 }
 
+// この0.5のところをレベルに応じて変化させる。
+// スピードはブロックより大きくあって欲しいので-2.2～-3.8にする
 function createCloud(){
   let w = 80 + random(200);
-	let type = (random() < 0.5 ? "front" : "back");
+	let type = (random() < backCloudProbability[level] ? "back" : "front");
   return {
     x: 1000,
     y: 100 + random(400),
-    vx: -2-random(2),
+    vx: -2.2 - random() * 1.6,
     vy:0,
     w: w,
     h: w * (0.4 + random(0.4)),
@@ -156,16 +175,18 @@ function updateScore(type){
 		case 0:
 			score += 1000; break;
 		case 1:
-			score += 5000; break;
+			score += 3000; break;
 		case 2:
-			score += 10000; break;
+			score += 6000; break;
 		case 3:
-			score += 7000; break; // 難しくなってしまった（（
+			score += 10000; break; // 難しくなってしまった（（
 	}
 }
 
 function drawGameoverScreen(){
-  background(red(color(BACKGROUND_COLOR)), blue(color(BACKGROUND_COLOR)), green(color(BACKGROUND_COLOR)), 192);
+  background(0, 150);
+	fill(80);
+	rect(width * 0.9, height * 0.1, width * 0.2, height * 0.2);
   fill(0);
   textSize(64);
   textAlign(CENTER, CENTER);
@@ -173,6 +194,8 @@ function drawGameoverScreen(){
 	if(score > hi_score){
 		text("Hi-SCORE UPDATED!!", width / 2, height / 2 + 35);
 	}
+	textSize(32);
+	text("TO TITLE", width * 0.9, height * 0.1);
 }
 
 function resetGame(){
@@ -187,7 +210,7 @@ function resetGame(){
 
 function updateGame(){
   if(gameState === "gameover"){ return; }
-	if(gameState === "title"){ updateDemo(); return; }
+	if(gameState === "title" || gameState === "select"){ updateDemo(); return; }
   // パーティクルの追加
   particles.push(createParticle(player.x, player.y)); // プレイヤーの位置で
 	// ブロックの追加
@@ -196,7 +219,7 @@ function updateGame(){
 		addBlockPair(pairType);
 	}
   // 雲の追加
-	if(frameCount % 200 == 0) clouds.push(createCloud());
+	if(frameCount % cloudGenerateInterval[level] === 0) clouds.push(createCloud());
 
 	// 死んだエンティティの排除
   blockPairs = blockPairs.filter(blockPairIsAlive);
@@ -246,18 +269,26 @@ function updateDemo(){
   for(let cloud of clouds) updatePosition(cloud);
 }
 
+// レベリングこんな感じでどう？
+// EASY: 0:90% 1:5% 2:5% 3:0%     背景色：緑系     雲比率：back:75, front:25  interval:250
+// NORMAL: 0:60% 1:25% 2:10% 3:5%   背景色：青系   雲比率：back:50, front:50  interval:200
+// HARD: 0:30% 1:35% 2:20% 3:15%    背景色：赤系   雲比率：back:25, front:75  interval:150
+// CRAZY: 0:0% 1:40% 2:30% 3:30%   背景色：灰色系  雲比率：back:0,  front:100 interval:100
+
 function getType(){
-	// 0:60% 1:25% 2:5% 3:10% にする。
+	// 0:60% 1:25% 2:10% 3:5% にする。(NORMAL)
 	let r = random();
-	if(r < 0.6){ return 0; }
-	if(r < 0.85){ return 1; }
-	if(r < 0.9){ return 2; }
+	if(r < validation1[level]){ return 0; }
+	if(r < validation2[level]){ return 1; }
+	if(r < validation3[level]){ return 2; }
 	return 3;
 }
 
 function drawGame(){
-	if(gameState === "title"){ drawTitle(); return; }
-  background(BACKGROUND_COLOR);
+	if(gameState === "title" || gameState === "select"){ drawTitle(); return; }
+  //background(BACKGROUND_COLOR);
+	//background(220);
+	image(bgSet[level], 0, 0);
 	// パーティクル→プレイヤー→ブロック→最後に雲
 	for(let cloud of clouds){ if(cloud.type === "back"){ drawCloud(cloud); } }
 	for(let particle of particles) drawParticle(particle);
@@ -272,32 +303,89 @@ function drawGame(){
 }
 
 function drawTitle(){
-	background(200, 200, 255);
+	//background(200, 200, 255);
+	image(bgSet.title, 0, 0);
+	const y = height * 3 / 5;
 	for(let cloud of clouds) drawCloud(cloud);
 	fill(0);
 	textAlign(CENTER, CENTER);
 	textSize(80);
 	text("--FLAPPY BIRD--", width / 2, height / 5);
-	fill(0, 120 * sin(frameCount * 0.08) + 135)
-	text("CLICK HERE!", width / 2, height * 3 / 5);
+	if(gameState === "title"){
+	  fill(0, 120 * sin(frameCount * 0.08) + 135)
+	  text("CLICK HERE!", width / 2, y);
+		return;
+	}else{
+		const r = width * 0.15;
+		fill(34, 177, 76);
+		ellipse(width * 0.2, y, r, r);
+		fill(237, 28, 36);
+		ellipse(width * 0.4, y, r, r);
+		fill(63, 72, 204);
+		ellipse(width * 0.6, y, r, r);
+		fill(255, 127, 39);
+		ellipse(width * 0.8, y, r, r);
+		fill(0);
+		textSize(28);
+		text("EASY", width * 0.2, y);
+		text("NORMAL", width * 0.4, y);
+		text("HARD", width * 0.6, y);
+		text("CRAZY", width * 0.8, y);
+		return;
+	}
 }
 
 function onMousePress(){
-	if(!actionFlag){ return; }
+	const x = mouseX;
+	const y = mouseY;
   switch(gameState){
 		case "title":
+		  gameState = "select"
+			soundSet.decision.play();
+			break;
+		case "select":
+			if(!cursorIsInLevelSelectArea(x, y)){ return; }
+			level = getLevel(x);
 			gameState = "play";
-			clouds = [];
+			soundSet.decision.play();
+			clouds = []; // 雲をカットする
 			break;
     case "play":
       applyJump(player);
       break;
     case "gameover":
-			gameState = "play";
-      resetGame();
+			resetGame();
+			if(cursorIsInTotitleArea(x, y)){
+				gameState = "title";
+				soundSet.decision.play();
+				hi_score = 0;
+			}else{
+				gameState = "play";
+			}
       break;
   }
-	actionFlag = false;
+}
+
+function cursorIsInLevelSelectArea(x, y){
+	const selectY = height * 3 / 5;
+	const r = width * 0.075;
+	if(dist(x, y, width * 0.2, selectY) < r){ return true; }
+	if(dist(x, y, width * 0.4, selectY) < r){ return true; }
+	if(dist(x, y, width * 0.6, selectY) < r){ return true; }
+	if(dist(x, y, width * 0.8, selectY) < r){ return true; }
+	return false;
+}
+
+function cursorIsInTotitleArea(x, y){
+	return (x < width) && (x > width * 0.8) && (y > 0) && (y < height * 0.2);
+}
+
+// xの位置に応じてeasy, normal, hard, crazyを返す
+function getLevel(x){
+	if(x < width * 0.3){ return "easy"; }
+	if(x < width * 0.5){ return "normal"; }
+	if(x < width * 0.7){ return "hard"; }
+	return "crazy";
 }
 
 function drawBlock(entity, posType, type){
@@ -378,7 +466,7 @@ function drawParticle(particle) {
 let playerImg;
 let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
-//let headAddress = "";
+// let headAddress = "";
 let soundSet = {};
 
 function preload(){
@@ -393,7 +481,32 @@ function preload(){
 	soundSet.jump = loadSound(headAddress + "jump.wav");
 	soundSet.miss = loadSound(headAddress + "miss.wav");
 	soundSet.passed = loadSound(headAddress + "passed.wav");
+	soundSet.decision = loadSound(headAddress + "decision.wav");
 }
+
+function createBackground(hue){
+	let bg = createGraphics(width, height);
+	bg.colorMode(HSB, 100);
+	bg.noStroke();
+	// 2番目を0→100とした上で3番目を100→0にする
+	for(let k = 0; k < 100; k++){
+		bg.fill(hue, k, 100);
+		bg.rect(0, height * k / 200, width, height / 200);
+		bg.fill(hue, 100, 100 - k);
+		bg.rect(0, height * (100 + k) / 200, width, height / 200);
+	}
+  return bg;
+}
+
+function setBackgrounds(){
+	bgSet = {};
+	bgSet.title = createBackground(53);
+	bgSet.easy = createBackground(33);
+	bgSet.normal = createBackground(0);
+	bgSet.hard = createBackground(70);
+	bgSet.crazy = createBackground(13);
+}
+
 
 // setup/draw
 
@@ -405,10 +518,10 @@ function setup() {
 	gameState = "title";
   resetGame();
 	pc = {r:red(color(PARTICLE_COLOR)), g:green(color(PARTICLE_COLOR)), b:blue(color(PARTICLE_COLOR))};
+	setBackgrounds()
 }
 
 function draw() {
-	actionFlag = true;
   updateGame();
   drawGame();
 	//image(playerImg, 20, 20);
@@ -417,10 +530,5 @@ function draw() {
 
 function mousePressed(){
   // マウスが押された場合の処理
-  onMousePress();
-}
-
-function touchStarted(){
-	// タッチ操作用
   onMousePress();
 }

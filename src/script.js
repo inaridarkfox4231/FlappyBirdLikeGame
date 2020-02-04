@@ -10,6 +10,7 @@
 /*
   効果音：ぐぁどさんがピストンコラージュで作った音源を使用させていただいてます。
 	(http://pxtone.haru.gs/instruments/GaDtone.zip)
+	BGM(背景音楽)：きつねさん(@Fox_dot_Lab)の楽曲FluffyBallonsを採用させていただきました。ありがとうございます！
 */
 
 // レベルに応じて背景色を変える。
@@ -17,6 +18,7 @@
 // 最後にセレクト画面に戻れるようにしたい。
 // ハイスコアをレベルごとにしてセレクト画面で表示されるようにするとか？まあとりあえずリセットでいいよ。
 // decisionの効果音付けた。
+// 12780フレーム（3:33くらい）で曲を戻す処理を追加
 
 const FINAL_VELOCITY = 8;
 const PLAYER_COLOR = "#4169e1";
@@ -24,6 +26,7 @@ const BLOCK_COLOR = "#a0522d";
 //const BACKGROUND_COLOR = "#deb887";
 const CLOUD_COLOR = "#e6e6fa";
 const PARTICLE_COLOR = "#00bfff";
+const TITLE_NAME = "--FLAPPY FLAFFY--";
 let pc;
 
 let gravity = 0.15;
@@ -45,8 +48,11 @@ let bgSet;
 
 // ゲーム全体に関わる部分
 
+// グローバル変数
 let score;
 let hi_score;
+let musicCount; // 曲ループ用
+let demoPlayerCount; // タイトル画面のキャラ動かし用
 
 /** プレイヤーエンティティ */
 let player = {
@@ -184,7 +190,7 @@ function updateScore(type){
 }
 
 function drawGameoverScreen(){
-  background(0, 150);
+  background(0, 100);
 	fill(80);
 	rect(width * 0.9, height * 0.1, width * 0.2, height * 0.2);
   fill(0);
@@ -211,6 +217,12 @@ function resetGame(){
 function updateGame(){
   if(gameState === "gameover"){ return; }
 	if(gameState === "title" || gameState === "select"){ updateDemo(); return; }
+	// 曲はプレイの間だけ流し続ける、12780カウントで元に戻す（一旦停止したのち再開）。
+	musicCount++;
+	if(musicCount === 12780){
+		bgm.stop();
+		bgm.play();
+	}
   // パーティクルの追加
   particles.push(createParticle(player.x, player.y)); // プレイヤーの位置で
 	// ブロックの追加
@@ -257,8 +269,10 @@ function updateGame(){
 }
 
 // ミスした時の処理（gameoverにする、音出す）
+// どうして・・・・stopを先にしてみる？
 function miss(){
 	gameState = "gameover";
+	bgm.stop();
 	soundSet.miss.play();
 }
 
@@ -305,17 +319,27 @@ function drawGame(){
 function drawTitle(){
 	//background(200, 200, 255);
 	image(bgSet.title, 0, 0);
-	const y = height * 3 / 5;
+	// デモ画面の雲
 	for(let cloud of clouds) drawCloud(cloud);
+	// デモ画面のプレイヤー
+	const properCount = demoPlayerCount % 66;
+	const demoPlayerHeight = 84.15 * properCount * (66 - properCount) / 1089;
+	image(playerImg, width / 2 - 20, height / 2 - 20 - demoPlayerHeight); // はねる。
+	demoPlayerCount++;
+	// テキスト
 	fill(0);
 	textAlign(CENTER, CENTER);
 	textSize(80);
-	text("--FLAPPY BIRD--", width / 2, height / 5);
+	text(TITLE_NAME, width / 2, height / 5);
+	// いろいろ表示する高さ・・
+	const y = height * 3 / 5;
 	if(gameState === "title"){
+		// タイトルの場合はクリック要求
 	  fill(0, 120 * sin(frameCount * 0.08) + 135)
 	  text("CLICK HERE!", width / 2, y);
 		return;
 	}else{
+		// セレクトの場合は選択肢を表示
 		const r = width * 0.15;
 		fill(34, 177, 76);
 		ellipse(width * 0.2, y, r, r);
@@ -347,6 +371,9 @@ function onMousePress(){
 			if(!cursorIsInLevelSelectArea(x, y)){ return; }
 			level = getLevel(x);
 			gameState = "play";
+			bgm.play(); // BGMスタート！
+			musicCount = 0; // 繰り返し用
+			demoPlayerCount = 0;
 			soundSet.decision.play();
 			clouds = []; // 雲をカットする
 			break;
@@ -361,6 +388,9 @@ function onMousePress(){
 				hi_score = 0;
 			}else{
 				gameState = "play";
+				bgm.play(); // BGMスタートはplayに入るとき（2ヶ所）
+				musicCount = 0;
+				demoPlayerCount = 0;
 			}
       break;
   }
@@ -468,6 +498,7 @@ let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
 // let headAddress = "";
 let soundSet = {};
+let bgm;
 
 function preload(){
 	playerImg = loadImage(headAddress + "player.png");
@@ -482,6 +513,7 @@ function preload(){
 	soundSet.miss = loadSound(headAddress + "miss.wav");
 	soundSet.passed = loadSound(headAddress + "passed.wav");
 	soundSet.decision = loadSound(headAddress + "decision.wav");
+	bgm = loadSound(headAddress + "Fluffy.mp3");
 }
 
 function createBackground(hue){
@@ -518,7 +550,8 @@ function setup() {
 	gameState = "title";
   resetGame();
 	pc = {r:red(color(PARTICLE_COLOR)), g:green(color(PARTICLE_COLOR)), b:blue(color(PARTICLE_COLOR))};
-	setBackgrounds()
+	setBackgrounds();
+	demoPlayerCount = 0;
 }
 
 function draw() {

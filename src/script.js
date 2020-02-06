@@ -30,16 +30,16 @@ const TITLE_NAME = "--FLAPPY FLAFFY--";
 let pc;
 
 let gravity = 0.15;
-let jump_speed = 5;
+let jump_speed = 4.5;
 // 冷静に考えたらスマホ前提ならtouch系だけでいいんだっけ。とりあえず無しにしよ。
 
 // レベリング関連
 let level; // "easy", "normal", "hard", "crazy".
 let cloudGenerateInterval = {easy:250, normal:200, hard:150, crazy:100};
 let backCloudProbability = {easy:0.75, normal:0.5, hard:0.25, crazy:0.05};
-let validation1 = {easy:0.9, normal:0.6, hard:0.3, crazy:0};
-let validation2 = {easy:0.95, normal:0.85, hard:0.65, crazy:0.4};
-let validation3 = {easy:1, normal:0.95, hard:0.85, crazy:0.7};
+let validation1 = {easy:0.9, normal:0.7, hard:0.4, crazy:0.1};
+let validation2 = {easy:1.0, normal:0.9, hard:0.7, crazy:0.5};
+let validation3 = {easy:1.0, normal:1.0, hard:0.9, crazy:0.8};
 
 // 背景
 let bgSet;
@@ -82,7 +82,7 @@ function updateBlockPairPosition(blockPair){
 			blockPair.l.vy *= -1;
 		}
 	}else if(blockPair.type === 3){
-		if(blockPair.u.y > 50 || blockPair.u.y < -100){
+		if(blockPair.u.y > 40 || blockPair.u.y < -100){
 			blockPair.u.vy *= -1;
 		}
 		blockPair.l.y = 600 - blockPair.u.y; // 強制的に600 - u.yにする
@@ -151,7 +151,7 @@ function addBlockPair(type = 0){
     let y = random(-100, 100);
     blockPairs.push(createBlockPair(y, type));
 	}else if(type === 3){
-		let y = random(-100, 50);
+		let y = random(-100, 40);
 		blockPairs.push(createBlockPair(y, type));
 	}
   //blocks.push(createBlock(y));
@@ -330,7 +330,13 @@ function drawTitle(){
 	fill(0);
 	textAlign(CENTER, CENTER);
 	textSize(80);
-	text(TITLE_NAME, width / 2, height / 5);
+	push();
+	translate(width * 0.5, height * 0.5);
+	text(TITLE_NAME, 0, -height * 0.3);
+	applyMatrix(1, 0, 0, -1, 0, 0);
+	fill(0, 64);
+	text(TITLE_NAME, 0, height * 0.18);
+	pop();
 	// いろいろ表示する高さ・・
 	const y = height * 3 / 5;
 	if(gameState === "title"){
@@ -452,7 +458,9 @@ function drawPlayer(entity){
 }
 
 function playerIsAlive(entity){
-  return entity.y < 700 && entity.y > -100; // 画面上部に逃げれば当たらずに済んでしまうのでその裏技を禁止にする
+	const flag = (entity.y < 700) && (entity.y > -100);
+	if(!flag){ bgm.stop(); }
+  return flag; // 画面上部に逃げれば当たらずに済んでしまうのでその裏技を禁止にする
 }
 
 function drawCloud(entity){
@@ -496,7 +504,7 @@ function drawParticle(particle) {
 let playerImg;
 let blockImgSet;
 let headAddress = "https://inaridarkfox4231.github.io/assets/FlappyBird/";
-// let headAddress = "";
+//let headAddress = "";
 let soundSet = {};
 let bgm;
 
